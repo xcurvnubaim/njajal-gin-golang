@@ -24,7 +24,7 @@ type IAuthUseCase interface {
 	generateOTPCode() string
 	GenerateToken(PayloadToken) (string, error)
 	GetAllUser() (*GetAllUsersResponseDTO, e.ApiError)
-	VerifyOTPcode(string, string) error
+	VerifyOTPcode(*UserModel, string) error
 	VerifyUser(*VerifyOTPRequestDTO) (*VerifyOTPResponseDTO, e.ApiError)
 }
 
@@ -169,12 +169,7 @@ func (uc *authUseCase) GetAllUser() (*GetAllUsersResponseDTO, e.ApiError) {
 	}, nil
 }
 
-func (uc *authUseCase) VerifyOTPcode(email, code string) error {
-	user, err := uc.authRepository.GetUserByEmail(email)
-	if err != nil {
-		return err
-	}
-
+func (uc *authUseCase) VerifyOTPcode(user *UserModel, code string) error {
 	// Check if OTP code is valid
 	if user.Otp == "" || code != user.Otp {
 		return errors.New("invalid OTP code")
@@ -184,6 +179,11 @@ func (uc *authUseCase) VerifyOTPcode(email, code string) error {
 	if time.Now().After(user.OtpExpiredAt) {
 		return errors.New("OTP code is expired")
 	}
+
+	// Reset OTP code
+	user.Otp = ""
+	user.OtpExpiredAt = time.Now()
+
 	return nil
 }
 
@@ -200,19 +200,18 @@ func sendOTPcode(otp, email string) error {
 }
 
 func (uc *authUseCase) VerifyUser(data *VerifyOTPRequestDTO) (*VerifyOTPResponseDTO, e.ApiError) {
-	err := uc.VerifyOTPcode(data.Email, data.OTP)
-	if err != nil {
-		return nil, e.NewApiError(400, err.Error())
-	}
-
 	user, err := uc.authRepository.GetUserByEmail(data.Email)
 	if err != nil {
 		return nil, e.NewApiError(400, "User not found")
 	}
+	
+	errApi := uc.VerifyOTPcode(user, data.OTP)
+	if errApi != nil {
+		return nil, e.NewApiError(400, errApi.Error())
+	}
 
-	// Update user verified_at
-	user.VerifiedAt = new(time.Time)
-	*user.VerifiedAt = time.Now()
+	now := time.Now()
+	user.VerifiedAt = &now
 
 	if err := uc.authRepository.UpdateUser(user); err != nil {
 		return nil, e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", err.Code()))
