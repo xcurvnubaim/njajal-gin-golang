@@ -4,38 +4,35 @@ import "github.com/google/uuid"
 
 type (
 	LoginUserRequestDTO struct {
-		PhoneNumber string `json:"phone_number" binding:"required"`
-		Password    string `json:"password" binding:"required"`
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
 	}
 
 	LoginUserResponseDTO struct {
-		Username    string `json:"username"`
-		PhoneNumber string `json:"phone_number"`
-		Roles       string `json:"roles"`
-		Token       string `json:"token"`
+		Email string `json:"email"`
+		Roles string `json:"roles"`
+		Token string `json:"token"`
 	}
 
 	RegisterUserRequestDTO struct {
-		Username        string `json:"username" binding:"min=5,required"`
-		PhoneNumber     string `json:"phone_number" binding:"required"`
+		Email           string `json:"email" binding:"min=5,required"`
 		Password        string `json:"password" binding:"required"`
 		ConfirmPassword string `json:"confirm_password" binding:"required"`
 	}
 
 	RegisterUserResponseDTO struct {
-		Username    string `json:"username"`
-		PhoneNumber string `json:"phone_number"`
+		Email string `json:"email"`
+		Roles string `json:"roles"`
 	}
 
 	GetMeResponseDTO struct {
-		Username    string `json:"username"`
-		PhoneNumber string `json:"phone_number"`
-		Roles       string `json:"roles"`
+		Email string `json:"email"`
+		Roles string `json:"roles"`
 	}
 
 	GetUser struct {
-		ID       uuid.UUID `json:"id"`
-		Username string    `json:"username"`
+		ID    uuid.UUID `json:"id"`
+		Email string    `json:"email"`
 	}
 
 	GetAllUsersResponseDTO struct {
@@ -43,7 +40,12 @@ type (
 	}
 
 	VerifyOTPRequestDTO struct {
-		PhoneNumber string `json:"phone_number" binding:"required"`
-		OTP         string `json:"otp" binding:"required"`
+		Email string `json:"email" binding:"required"`
+		OTP   string `json:"otp" binding:"required"`
+	}
+
+	VerifyOTPResponseDTO struct {
+		Email      string `json:"email"`
+		VerifiedAt string `json:"verified_at"`
 	}
 )

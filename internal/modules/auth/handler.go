@@ -27,6 +27,7 @@ func (ah *AuthHandler) Routes(prefix string) {
 	{
 		authentication.POST("/register", ah.Register)
 		authentication.POST("/login", ah.Login)
+		authentication.POST("/verify", ah.VerifyUser)
 
 		authentication.Use(middleware.AuthenticateJWT())
 		{
@@ -46,15 +47,15 @@ func (ah *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Register User
-	if err := ah.authUseCase.RegisterUser(&authentication); err != nil {
+	res, err := ah.authUseCase.RegisterUser(&authentication); if err != nil {
 		errMsg := err.Error()
 		c.JSON(err.Code(), app.NewErrorResponse("Failed to register user", &errMsg))
 		return
 	}
 
 	c.JSON(200, app.NewSuccessResponse("User registered successfully", &RegisterUserResponseDTO{
-		Username: authentication.Username,
-		PhoneNumber: authentication.PhoneNumber,
+		Email: res.Email,
+		Roles: res.Roles,
 	}))
 }
 
@@ -122,14 +123,32 @@ func (ah *AuthHandler) GetAllUsers(c *gin.Context) {
 	c.JSON(200, app.NewSuccessResponse("All users retrieved successfully", users))
 }
 
-func (ah *AuthHandler) GetUserByUsername(c *gin.Context) {
-	username := c.Param("username")
-	user, err := ah.authUseCase.GetUserByUsername(username)
-	if err != nil {
-		errMsg := err.Error()
-		c.JSON(err.Code(), app.NewErrorResponse("Failed to get user data", &errMsg))
+// func (ah *AuthHandler) GetUserByUsername(c *gin.Context) {
+// 	username := c.Param("username")
+// 	user, err := ah.authUseCase.GetUserByUsername(username)
+// 	if err != nil {
+// 		errMsg := err.Error()
+// 		c.JSON(err.Code(), app.NewErrorResponse("Failed to get user data", &errMsg))
+// 		return
+// 	}
+
+// 	c.JSON(200, app.NewSuccessResponse("User data retrieved successfully", user))
+// }
+
+func (ah *AuthHandler) VerifyUser(c *gin.Context) {
+	var verify VerifyOTPRequestDTO
+	if err := c.ShouldBindJSON(&verify); err != nil {
+		var errMessages = CustomValidator.FormatValidationErrors(err)
+		c.JSON(400, app.NewErrorResponse("Validation Error", &errMessages))
 		return
 	}
 
-	c.JSON(200, app.NewSuccessResponse("User data retrieved successfully", user))
+	res, err := ah.authUseCase.VerifyUser(&verify)
+	if err != nil {
+		errMsg := err.Error()
+		c.JSON(400, app.NewErrorResponse("Failed to verify OTP", &errMsg))
+		return
+	}
+
+	c.JSON(200, app.NewSuccessResponse("OTP verified successfully", res))
 }

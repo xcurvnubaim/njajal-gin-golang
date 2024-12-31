@@ -8,10 +8,10 @@ import (
 
 type IAuthRepository interface {
 	RegisterUser(*UserModel) e.ApiError
-	GetUserByUsername(string) (*UserModel, e.ApiError)
-	GetUserByPhoneNumber(string) (*UserModel, e.ApiError)
+	GetUserByEmail(string) (*UserModel, e.ApiError)
 	GetUserByID(uuid.UUID) (*UserModel, e.ApiError)
 	GetAllUser() ([]UserModel, e.ApiError)
+	UpdateUser(*UserModel) e.ApiError
 }
 
 type authRepository struct {
@@ -31,27 +31,11 @@ func (r *authRepository) RegisterUser(user *UserModel) e.ApiError {
 	return nil
 }
 
-func (r *authRepository) GetUserByUsername(username string) (*UserModel, e.ApiError) {
+func (r *authRepository) GetUserByEmail(email string) (*UserModel, e.ApiError) {
 	user := &UserModel{}
-	result := r.db.Where("username = ?", username).First(user)
+	result := r.db.Where("email = ?", email).First(user)
 	if result.Error != nil {
-		if result.Error.Error() == "record not found" {
-			return nil, e.NewApiError(e.ERROR_USER_NOT_FOUND, "User not found")
-		}
 		return nil, e.NewApiError(e.ERROR_GET_USER_BY_EMAIL_REPOSITORY_FAILED, result.Error.Error())
-	}
-
-	return user, nil
-}
-
-func (r *authRepository) GetUserByPhoneNumber(phoneNumber string) (*UserModel, e.ApiError) {
-	user := &UserModel{}
-	result := r.db.Where("phone_number = ?", phoneNumber).First(user)
-	if result.Error != nil {
-		if result.Error.Error() == "record not found" {
-			return nil, e.NewApiError(e.ERROR_USER_NOT_FOUND, "User not found")
-		}
-		return nil, e.NewApiError(e.ERROR_GET_USER_BY_PHONE_NUMBER_REPOSITORY_FAILED, result.Error.Error())
 	}
 
 	return user, nil
@@ -75,4 +59,13 @@ func (r *authRepository) GetAllUser() ([]UserModel, e.ApiError) {
 	}
 
 	return users, nil
+}
+
+func (r *authRepository) UpdateUser(user *UserModel) e.ApiError {
+	result := r.db.Save(user)
+	if result.Error != nil {
+		return e.NewApiError(e.ERROR_UPDATE_USER_REPOSITORY_FAILED, result.Error.Error())
+	}
+
+	return nil
 }

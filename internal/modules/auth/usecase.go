@@ -16,14 +16,16 @@ import (
 )
 
 type IAuthUseCase interface {
-	RegisterUser(*RegisterUserRequestDTO) e.ApiError
+	RegisterUser(*RegisterUserRequestDTO) (*RegisterUserResponseDTO, e.ApiError)
 	LoginUser(*LoginUserRequestDTO) (*LoginUserResponseDTO, e.ApiError)
 	GetMe(uuid.UUID) (*GetMeResponseDTO, e.ApiError)
 	HashPassword(string) (string, error)
 	VerifyPassword(string, string) bool
+	generateOTPCode() string
 	GenerateToken(PayloadToken) (string, error)
 	GetAllUser() (*GetAllUsersResponseDTO, e.ApiError)
-	GetUserByUsername(string) (*GetUser, e.ApiError)
+	VerifyOTPcode(string, string) error
+	VerifyUser(*VerifyOTPRequestDTO) (*VerifyOTPResponseDTO, e.ApiError)
 }
 
 type authUseCase struct {
@@ -36,42 +38,44 @@ func NewAuthUseCase(authRepository IAuthRepository) *authUseCase {
 	}
 }
 
-func (uc *authUseCase) RegisterUser(data *RegisterUserRequestDTO) e.ApiError {
+func (uc *authUseCase) RegisterUser(data *RegisterUserRequestDTO) (*RegisterUserResponseDTO, e.ApiError) {
 
-	// Check username already registered
-	userCheck, _ := uc.authRepository.GetUserByUsername(data.Username)
+	// Check email already registered
+	userCheck, _ := uc.authRepository.GetUserByEmail(data.Email)
 
 	if userCheck != nil {
-		return e.NewApiError(400, "Username already registered")
-	}
-
-	// Check phone number already registered
-	phoneCheck, _ := uc.authRepository.GetUserByPhoneNumber(data.PhoneNumber)
-	if phoneCheck != nil {
-		return e.NewApiError(400, "Phone number already registered")
+		return nil, e.NewApiError(400, "Email already registered")
 	}
 
 	hashedPassword, err := uc.HashPassword(data.Password)
 	if err != nil {
 		log.Println(err.Error())
-		return e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", e.ERROR_BCRYPT_HASH_FAILED))
+		return nil, e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", e.ERROR_BCRYPT_HASH_FAILED))
 	}
 
-	user := NewUser(data.Username, hashedPassword, data.PhoneNumber, "123456", time.Now().Add(time.Minute*15))
-
-	if err := sendOTPcode(data.PhoneNumber); err != nil {
-		log.Println(err.Error())
-	}
-
+	user := NewUser(data.Email, hashedPassword, uc.generateOTPCode(), time.Now().Add(time.Minute*15))
+	
 	if err := uc.authRepository.RegisterUser(user); err != nil {
 		log.Println(err.Error())
-		return e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", err.Code()))
+		return nil, e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", err.Code()))
 	}
-	return nil
+
+	if err := sendOTPcode(user.Otp, data.Email); err != nil {
+		log.Println(err.Error())
+	}
+
+	return &RegisterUserResponseDTO{
+		Email: data.Email,
+		Roles: user.Role,
+	}, nil
+}
+
+func (uc *authUseCase) generateOTPCode() string {
+	return fmt.Sprintf("%06d", rand.Intn(1000000))
 }
 
 func (uc *authUseCase) LoginUser(data *LoginUserRequestDTO) (*LoginUserResponseDTO, e.ApiError) {
-	user, err := uc.authRepository.GetUserByPhoneNumber(data.PhoneNumber)
+	user, err := uc.authRepository.GetUserByEmail(data.Email)
 	if err != nil {
 		return nil, e.NewApiError(400, "User not found")
 	}
@@ -97,10 +101,9 @@ func (uc *authUseCase) LoginUser(data *LoginUserRequestDTO) (*LoginUserResponseD
 	}
 
 	return &LoginUserResponseDTO{
-		Username:    user.Username,
-		PhoneNumber: user.PhoneNumber,
-		Roles:       user.Role,
-		Token:       token,
+		Email: user.Email,
+		Roles: user.Role,
+		Token: token,
 	}, nil
 }
 
@@ -110,9 +113,8 @@ func (uc *authUseCase) GetMe(userID uuid.UUID) (*GetMeResponseDTO, e.ApiError) {
 		return &GetMeResponseDTO{}, e.NewApiError(404, "User not found")
 	}
 	return &GetMeResponseDTO{
-		Username:    user.Username,
-		PhoneNumber: user.PhoneNumber,
-		Roles:       user.Role,
+		Email: user.Email,
+		Roles: user.Role,
 	}, nil
 }
 
@@ -157,8 +159,8 @@ func (uc *authUseCase) GetAllUser() (*GetAllUsersResponseDTO, e.ApiError) {
 	var response []GetUser
 	for _, user := range users {
 		response = append(response, GetUser{
-			ID:       user.ID,
-			Username: user.Username,
+			ID:    user.ID,
+			Email: user.Email,
 		})
 	}
 
@@ -167,31 +169,27 @@ func (uc *authUseCase) GetAllUser() (*GetAllUsersResponseDTO, e.ApiError) {
 	}, nil
 }
 
-func (uc *authUseCase) GetUserByUsername(username string) (*GetUser, e.ApiError) {
-	user, err := uc.authRepository.GetUserByUsername(username)
+func (uc *authUseCase) VerifyOTPcode(email, code string) error {
+	user, err := uc.authRepository.GetUserByEmail(email)
 	if err != nil {
-		if err.Code() == e.ERROR_USER_NOT_FOUND {
-			return nil, e.NewApiError(404, "User not found")
-		}
-		return nil, e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", err.Code()))
+		return err
 	}
-	return &GetUser{
-		ID:       user.ID,
-		Username: user.Username,
-	}, nil
-}
 
-func (uc *authUseCase) VerifyOTPcode(code string) error {
 	// Check if OTP code is valid
-	if code != "123456" {
-		return errors.New("Invalid OTP code")
+	if user.Otp == "" || code != user.Otp {
+		return errors.New("invalid OTP code")
+	}
+
+	// Check if OTP code is expired
+	if time.Now().After(user.OtpExpiredAt) {
+		return errors.New("OTP code is expired")
 	}
 	return nil
 }
 
-func sendOTPcode(email string) error {
+func sendOTPcode(otp, email string) error {
 	// generate 6 digit random number
-	otp := fmt.Sprintf("%06d", rand.Intn(1000000))
+	// otp := fmt.Sprintf("%06d", rand.Intn(1000000))
 	bodyEmail := templateSendEmail(otp)
 	err := mail.SendEmail(email, "Your OTP Code", bodyEmail)
 	if err != nil {
@@ -199,4 +197,29 @@ func sendOTPcode(email string) error {
 		return err
 	}
 	return nil
+}
+
+func (uc *authUseCase) VerifyUser(data *VerifyOTPRequestDTO) (*VerifyOTPResponseDTO, e.ApiError) {
+	err := uc.VerifyOTPcode(data.Email, data.OTP)
+	if err != nil {
+		return nil, e.NewApiError(400, err.Error())
+	}
+
+	user, err := uc.authRepository.GetUserByEmail(data.Email)
+	if err != nil {
+		return nil, e.NewApiError(400, "User not found")
+	}
+
+	// Update user verified_at
+	user.VerifiedAt = new(time.Time)
+	*user.VerifiedAt = time.Now()
+
+	if err := uc.authRepository.UpdateUser(user); err != nil {
+		return nil, e.NewApiError(500, fmt.Sprintf("Internal Server Error (%d)", err.Code()))
+	}
+
+	return &VerifyOTPResponseDTO{
+		Email:      user.Email,
+		VerifiedAt: user.VerifiedAt.Format("2006-01-02 15:04:05"),
+	}, nil
 }
