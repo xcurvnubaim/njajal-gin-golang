@@ -1,0 +1,28 @@
+name: Build and Deploy Docker App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      # Log in to Docker Hub or your registry provider
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} # add your Docker Hub username to GitHub secrets
+          password: ${{ secrets.DOCKER_PASSWORD }} # add your Docker Hub password or token to GitHub secrets
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/njajal-go:latest .
+
+      - name: Push Docker Image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/njajal-go:latest
