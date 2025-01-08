@@ -19,6 +19,8 @@ RUN go build -o main cmd/api/main.go
 # Stage 2: Run
 FROM alpine:latest
 
+RUN apk add --no-cache libc6-compat
+
 # Set the working directory inside the container
 WORKDIR /root/
 
