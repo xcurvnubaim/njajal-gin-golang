@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/xcurvnubaim/njajal-gin-golang/internal/pkg/app"
+	"github.com/xcurvnubaim/njajal-gin-golang/internal/pkg/query"
+	CustomValidator "github.com/xcurvnubaim/njajal-gin-golang/internal/pkg/validator"
 )
 
 type Handler struct {
@@ -26,6 +28,7 @@ func (h *Handler) Routes(prefix string) {
 	{
 		routes.POST("/", h.CreateShortenerLink)
 		routes.GET("/:shortenerURL", h.GetOriginalURL)
+		routes.GET("/", h.GetAllShortenerLink)
 		// authentication.POST("/register", h.Register)
 		// authentication.POST("/login", h.Login)
 
@@ -64,4 +67,29 @@ func (h *Handler) GetOriginalURL(c *gin.Context) {
 	}
 
 	c.Redirect(301, *res)
+}
+
+func (h *Handler) GetAllShortenerLink(c *gin.Context) {
+	queryParams := query.NewQueryParams([]string{"original_url"})
+	queryParams.Parse(c, "10")
+	err := queryParams.Validate(CustomValidator.ParamValidator{
+		MaxSearchLength:       100,
+		AllowedOrderByColumns: []string{"created_at", "original_url"},
+		MaxPageSize:           100,
+	})
+
+	if err != nil {
+		errMsg := err.Error()
+		c.JSON(400, app.NewErrorResponse("Validation Error", &errMsg))
+		return
+	}
+
+	res, errApi := h.useCase.GetAllShortenerLink(queryParams)
+	if errApi != nil {
+		errMsg := errApi.Error()
+		c.JSON(errApi.Code(), app.NewErrorResponse("Failed to get all shorten link", &errMsg))
+		return
+	}
+
+	c.JSON(200, app.NewPaginationResponse("All shorten link retrieved successfully", res.Meta, res.Data))
 }

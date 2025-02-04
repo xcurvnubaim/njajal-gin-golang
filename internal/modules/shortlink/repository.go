@@ -9,6 +9,8 @@ import (
 type IRepository interface {
 	CreateShortenerLink(data *ShortenerLinkModel) error
 	GetShortenerLinkByShortenerURL(shortenerURL string) (*ShortenerLinkModel, error)
+	CountShortenerLink(applyQuery func(*gorm.DB) *gorm.DB) (int64, error)
+	GetAllShortenerLink(applyQuery func(*gorm.DB) *gorm.DB) ([]*ShortenerLinkModel, error)
 }
 
 type repository struct {
@@ -36,4 +38,24 @@ func (r *repository) GetShortenerLinkByShortenerURL(shortenerURL string) (*Short
 		return nil, err
 	}
 	return &shortenerLink, nil
+}
+
+func (r *repository) CountShortenerLink(applyQuery func(*gorm.DB) *gorm.DB) (int64, error) {
+	var count int64
+	err := applyQuery(r.db).Model(&ShortenerLinkModel{}).Count(&count).Error
+	if err != nil {
+		log.Println(err)
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *repository) GetAllShortenerLink(applyQuery func(*gorm.DB) *gorm.DB) ([]*ShortenerLinkModel, error) {
+	var shortenerLinks []*ShortenerLinkModel
+	err := applyQuery(r.db).Find(&shortenerLinks).Error
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return shortenerLinks, nil
 }

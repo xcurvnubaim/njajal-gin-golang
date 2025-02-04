@@ -6,12 +6,15 @@ import (
 	"log"
 	"strings"
 
+	"github.com/xcurvnubaim/njajal-gin-golang/internal/modules/common"
 	"github.com/xcurvnubaim/njajal-gin-golang/internal/pkg/e"
+	"github.com/xcurvnubaim/njajal-gin-golang/internal/pkg/query"
 )
 
 type IUseCase interface {
 	CreateShortenerLink(data *CreateShortenerLinkRequestDTO) (*CreateShortenerLinkResponseDTO, e.ApiError)
 	GetOriginalURL(shortenerURL string) (*string, e.ApiError)
+	GetAllShortenerLink(queryParam *query.QueryParams) (*common.PaginationResponseDTO[GetAllShortenerLinksResponseDTO], e.ApiError)
 }
 
 type useCase struct {
@@ -78,4 +81,35 @@ func (uc *useCase) GetOriginalURL(shortenerURL string) (*string, e.ApiError) {
 	}
 
 	return &shortenerLink.OriginalURL, nil
+}
+
+func (uc *useCase) GetAllShortenerLink(queryParam *query.QueryParams) (*common.PaginationResponseDTO[GetAllShortenerLinksResponseDTO], e.ApiError) {
+	shortenerLinks, err := uc.repository.GetAllShortenerLink(queryParam.ApplyQuery)
+	if err != nil {
+		return nil, e.NewApiError(500, err.Error())
+	}
+
+	var response common.PaginationResponseDTO[GetAllShortenerLinksResponseDTO]
+	data := make([]GetShortenerLink, 0)
+	for _, shortenerLink := range shortenerLinks {
+		data = append(data, GetShortenerLink{
+			ID: 		 shortenerLink.ID.String(),
+			OriginalURL:  shortenerLink.OriginalURL,
+			ShortenerURL: shortenerLink.ShortenerURL,
+			CreatedAt:    shortenerLink.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	totalCount, err := uc.repository.CountShortenerLink(queryParam.ApplyQuery)
+	if err != nil {
+		return nil, e.NewApiError(500, err.Error())
+	}
+
+	response.Data = &GetAllShortenerLinksResponseDTO{
+		ShortenerLink: data,
+	}
+
+	response.Meta = queryParam.NewPaginationMeta(int(totalCount))
+
+	return &response, nil
 }
