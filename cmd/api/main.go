@@ -8,6 +8,7 @@ import (
 	"github.com/xcurvnubaim/njajal-gin-golang/internal/database"
 	"github.com/xcurvnubaim/njajal-gin-golang/internal/middleware"
 	"github.com/xcurvnubaim/njajal-gin-golang/internal/modules/auth"
+	"github.com/xcurvnubaim/njajal-gin-golang/internal/modules/shortlink"
 )
 
 func main() {
@@ -34,6 +35,10 @@ func main() {
 	var authRepository auth.IAuthRepository = auth.NewAuthRepository(db)
 	var authService auth.IAuthUseCase = auth.NewAuthUseCase(authRepository)
 	auth.NewAuthHandler(r, authService, "/api/v1/auth")
+
+	var shortlinkRepository shortlink.IRepository = shortlink.NewRepository(db)
+	var shortlinkService shortlink.IUseCase = shortlink.NewuseCase(shortlinkRepository)
+	shortlink.NewHandler(r, shortlinkService, "/api/v1/shortener-link")
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{

@@ -25,6 +25,8 @@ type ConfigEnv struct {
 	SMTP_PORT string
 	SMTP_USER string
 	SMTP_PASSWORD string
+
+	BASE_URL string
 }
 
 var Config = &ConfigEnv{}
@@ -56,5 +58,6 @@ func Setup(pathEnv string) error {
 	Config.SMTP_USER = os.Getenv("SMTP_USER")
 	Config.SMTP_PASSWORD = os.Getenv("SMTP_PASSWORD")
 	
+	Config.BASE_URL = os.Getenv("BASE_URL")
 	return nil
 }
