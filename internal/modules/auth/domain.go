@@ -30,9 +30,7 @@ func (UserModel) TableName() string {
 
 func NewUser(email, password, otp string, otpExpiredAt time.Time) *UserModel {
 	return &UserModel{
-		BaseModels: common.BaseModels{
-			ID: uuid.New(),
-		},
+		BaseModels:   common.NewBaseModels(),
 		Email:        email,
 		Password:     password,
 		Otp:          otp,

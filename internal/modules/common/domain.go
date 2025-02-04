@@ -9,8 +9,16 @@ import (
 )
 
 type BaseModels struct {
-	ID        uuid.UUID     `gorm:"primary_key"`
+	ID        uuid.UUID `gorm:"primary_key"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP"`
 	UpdatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP, onUpdate:CURRENT_TIMESTAMP"`
-	DeletedAt gorm.DeletedAt 
+	DeletedAt gorm.DeletedAt
+}
+
+func NewBaseModels() BaseModels {
+	return BaseModels{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 }
