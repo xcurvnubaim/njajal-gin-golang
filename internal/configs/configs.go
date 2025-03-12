@@ -1,7 +1,6 @@
 package configs
 
 import (
-	"fmt"
 	"os"
 	"github.com/joho/godotenv"
 )
@@ -33,8 +32,8 @@ var Config = &ConfigEnv{}
 
 func Setup(pathEnv string) {
 	// Load .env file
-	err := godotenv.Load(pathEnv)
-	fmt.Println("Error loading .env file")
+	// Try loading .env, but ignore errors if running in Docker
+	_ = godotenv.Load(pathEnv)
 	
 	Config.DatabaseURL = os.Getenv("DATABASE_URL")
 	Config.DatabaseName = os.Getenv("DB_NAME")
