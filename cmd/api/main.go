@@ -13,9 +13,7 @@ import (
 
 func main() {
 	// Setup configuration
-	if err := configs.Setup(".env"); err != nil {
-		panic(err)
-	}
+	configs.Setup(".env")
 
 	// Setup for production
 	if configs.Config.ENV_MODE == "production" {
