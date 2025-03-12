@@ -31,14 +31,11 @@ type ConfigEnv struct {
 
 var Config = &ConfigEnv{}
 
-func Setup(pathEnv string) error {
+func Setup(pathEnv string) {
 	// Load .env file
 	err := godotenv.Load(pathEnv)
-	if err != nil {
-		fmt.Println("Error loading .env file")
-		return err
-	}
-
+	fmt.Println("Error loading .env file")
+	
 	Config.DatabaseURL = os.Getenv("DATABASE_URL")
 	Config.DatabaseName = os.Getenv("DB_NAME")
 	Config.DatabaseHost = os.Getenv("DB_HOST")
@@ -59,5 +56,4 @@ func Setup(pathEnv string) error {
 	Config.SMTP_PASSWORD = os.Getenv("SMTP_PASSWORD")
 	
 	Config.BASE_URL = os.Getenv("BASE_URL")
-	return nil
 }
