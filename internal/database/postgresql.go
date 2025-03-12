@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"os"
+	"log"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -11,9 +12,7 @@ import (
 
 func Setup() (*gorm.DB, error) {
 	err := godotenv.Load()
-	if err != nil {
-		return nil, fmt.Errorf("error loading .env file: %v", err)
-	}
+	log.Println(err)
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Jakarta",
 		os.Getenv("DB_HOST"),
